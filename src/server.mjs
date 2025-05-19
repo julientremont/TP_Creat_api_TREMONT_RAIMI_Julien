@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
-
+import rateLimit from 'express-rate-limit';
 import config from './config.mjs';
 import routes from './controllers/routes.mjs';
 
@@ -63,6 +63,17 @@ const Server = class Server {
   }
 
   middleware() {
+    const limiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 100,
+      message: {
+        status: 405,
+        message: 'Trop de requêtes, veuillez réessayer après une heure'
+      }
+    });
+
+    this.app.use(limiter);
+
     this.app.use(compression());
     this.app.use(cors());
     this.app.use(bodyParser.urlencoded({ extended: true }));
@@ -70,10 +81,8 @@ const Server = class Server {
   }
 
   routes() {
-    // Initialiser les routes avec l'app et la connexion
     routes.init(this.app, this.connect);
 
-    // Route 404 pour les requêtes non gérées
     this.app.use((req, res) => {
       res.status(404).json({
         code: 404,
