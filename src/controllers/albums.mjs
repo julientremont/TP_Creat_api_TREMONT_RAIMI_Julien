@@ -1,3 +1,4 @@
+import Validator from 'better-validator';
 class Albums {
   constructor(app, model) {
     this.app = app;
@@ -61,12 +62,23 @@ class Albums {
         });
       }
 
-      // eslint-disable-next-line new-cap
       const newAlbum = new this.model({
         title,
         description,
         photos: []
       });
+      const validator = new Validator();
+
+      validator(req.body.title).required().isString().lengthInRange(1, 20);
+      validator(req.body.description).isString().lengthInRange(1, 500);
+      const errors = validator.run();
+
+      if (errors.length > 0) {
+        return res.status(404).json({
+          code: 404,
+          message: 'probléme de validation',
+          errors: validator.errors
+        })};
 
       const savedAlbum = await newAlbum.save();
       return res.status(201).json(savedAlbum);
@@ -92,6 +104,18 @@ class Albums {
         updateData,
         { new: true, runValidators: true }
       );
+      const validator = new Validator();
+
+      validator(req.body.title).required().isString().lengthInRange(1, 20);
+      validator(req.body.description).isString().lengthInRange(1, 500);
+      const errors = validator.run();
+
+      if (errors.length > 0) {
+        return res.status(404).json({
+          code: 404,
+          message: 'probléme de validation',
+          errors: validator.errors
+        })};
 
       if (!updatedAlbum) {
         return res.status(404).json({
@@ -99,7 +123,6 @@ class Albums {
           message: 'Album non trouvé'
         });
       }
-
       return res.json(updatedAlbum);
     } catch (err) {
       return res.status(500).json({

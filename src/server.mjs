@@ -5,13 +5,56 @@ import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import config from './config.mjs';
 import routes from './controllers/routes.mjs';
+import https from 'https';
+import selfsigned from 'selfsigned';
+import fs from 'fs';
+import path from 'path';
+import config from './config.mjs';
 
 const Server = class Server {
-  constructor() {
+  constructor(customConfig = {}) {
+    const env = process.env.NODE_ENV || 'development';
+    const configFromFile = config[env];
+    this.config = { ...configFromFile, ...customConfig };
     this.app = express();
-    this.config = config[process.argv[2]] || config.development;
+  }
+
+  generateCertificate() {
+    const certPath = path.join(process.cwd(), 'cert');
+    const keyFile = path.join(certPath, 'key.pem');
+    const certFile = path.join(certPath, 'cert.pem');
+    
+    let key, cert;
+    
+    try {
+      if (fs.existsSync(keyFile) && fs.existsSync(certFile)) {
+        console.log('[SECURITY] Certificats existants trouvés, utilisation...');
+        key = fs.readFileSync(keyFile, 'utf8');
+        cert = fs.readFileSync(certFile, 'utf8');
+      } else {
+        console.log('[SECURITY] Génération de nouveaux certificats auto-signés...');
+
+        if (!fs.existsSync(certPath)) {
+          fs.mkdirSync(certPath, { recursive: true });
+        }
+        
+        const attrs = [{ name: 'commonName', value: 'localhost' }];
+        const pems = selfsigned.generate(attrs, { days: 365 });
+        
+        key = pems.private;
+        cert = pems.cert;
+        
+        fs.writeFileSync(keyFile, key);
+        fs.writeFileSync(certFile, cert);
+        console.log('[SECURITY] Nouveaux certificats générés et sauvegardés');
+      }
+      
+      return { key, cert };
+    } catch (err) {
+      console.error(`[ERROR] Problème avec les certificats: ${err}`);
+      throw err;
+    }
   }
 
   async dbConnect() {
@@ -98,17 +141,24 @@ const Server = class Server {
 
   async run() {
     try {
-      // Connecter à la base de données
       await this.dbConnect();
 
-      // Configurer le serveur
       this.security();
       this.middleware();
       this.routes();
 
-      // Démarrer le serveur
-      this.app.listen(this.config.port, () => {
-        console.log(`[SERVER] En cours d'exécution sur le port ${this.config.port} en mode ${this.config.type}`);
+      const { key, cert } = this.generateCertificate();
+
+      const httpsOptions = {
+        key: key,
+        cert: cert
+      };
+
+      const server = https.createServer(httpsOptions, this.app);
+      
+      server.listen(this.config.port, () => {
+        console.log(`[SERVER] HTTPS en cours d'exécution sur le port ${this.config.port} en mode ${this.config.type}`);
+        console.log(`[SERVER] Accès: https://localhost:${this.config.port}`);
       });
     } catch (err) {
       console.error(`[ERROR] Server -> ${err}`);

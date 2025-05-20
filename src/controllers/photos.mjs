@@ -1,3 +1,5 @@
+import Validator from 'better-validator';
+
 class Photos {
   constructor(app, model) {
     this.app = app;
@@ -48,50 +50,82 @@ class Photos {
     }
   }
 
-  async createPhoto(req, res) {
+  async createPhoto(req, res, next) {
     try {
       const {
         title, url, description, albums
       } = req.body;
 
-      if (!title) {
-        return res.status(400).json({
-          code: 400,
-          message: 'Le titre est requis'
-        });
-      }
+      const validator = new Validator();
 
-      // eslint-disable-next-line new-cap
-      const newPhoto = new this.model({
+      validator(req.body.title).required().isString().lengthInRange(1, 20);
+      validator(req.body.url).isString().lengthInRange(1, 500);
+      validator(req.body.albums).isArray().lengthInRange(1, 200);
+      const errors = validator.run();
+
+      if (errors.length > 0) {
+        return res.status(404).json({
+          code: 404,
+          message: 'probléme de validation',
+          errors: validator.errors
+        })};
+
+      const NewPhoto = new this.model({
         title,
         url,
         description,
         albums
       });
 
-      const savedPhoto = await newPhoto.save();
-      return res.status(201).json(savedPhoto);
-    } catch (err) {
-      return res.status(500).json({
-        code: 500,
-        message: 'Erreur interne du serveur',
-        error: err.message
+      await NewPhoto.save();
+
+      return res.status(201).json({
+        code: 201,
+        message: 'Photo créée avec succès',
+        data: NewPhoto
       });
+    } catch (error) {
+      return next(error);
     }
   }
 
-  async updatePhoto(req, res) {
+  async updatePhoto(req, res, next) {
     try {
       const {
         title, url, description, albums
       } = req.body;
       const updateData = {};
 
-      if (title) updateData.title = title;
+      // Collecte uniquement les champs fournis pour la mise à jour
+      if (title !== undefined) updateData.title = title;
       if (url !== undefined) updateData.url = url;
       if (description !== undefined) updateData.description = description;
       if (albums !== undefined) updateData.albums = albums;
 
+      // Vérifier s'il y a des données à mettre à jour
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          code: 400,
+          message: 'Aucune donnée fournie pour la mise à jour'
+        });
+      }
+      // Création du validateur
+      const validator = new Validator();
+      validator(req.body.title).required().isString().lengthInRange(1, 20);
+      validator(req.body.url).isString().lengthInRange(1, 500);
+      validator(req.body.albums).isArray().lengthInRange(1, 200);
+      const errors = validator.run();
+
+      if (errors.length > 0) {
+        return res.status(44).json({
+          code: 404,
+          message: 'probléme de validation',
+          errors: validator.errors
+        });
+      }
+
+
+      // Mise à jour de la photo
       const updatedPhoto = await this.model.findByIdAndUpdate(
         req.params.id,
         updateData,
@@ -105,13 +139,13 @@ class Photos {
         });
       }
 
-      return res.json(updatedPhoto);
-    } catch (err) {
-      return res.status(500).json({
-        code: 500,
-        message: 'Erreur interne du serveur',
-        error: err.message
+      return res.json({
+        code: 200,
+        message: 'Photo mise à jour avec succès',
+        data: updatedPhoto
       });
+    } catch (err) {
+      return next(err);
     }
   }
 
