@@ -5,9 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "npx eslint ./src/**/*.mjs && node index.mjs ",
-    "prod": "node index.mjs production",
-    "lint": "npx eslint ./src/**/*.mjs"
+    "dev": "node index.mjs ",
+    "prod": "node index.mjs production"
   },
   "author": "Cyril Vimard",
   "license": "ISC",
@@ -21,7 +20,9 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^7.8.7"
+    "mongoose": "^7.8.7",
+    "next": "^15.3.2",
+    "selfsigned": "^2.4.1"
   },
   "devDependencies": {
     "eslint": "^8.42.0",
